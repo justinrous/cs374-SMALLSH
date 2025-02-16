@@ -17,6 +17,11 @@ struct command_line
 
 struct command_line *parse_input()
 {
+	/*
+	** Code adapted from canvas
+	** Date:
+	** URL: 
+	*/
 	char input[INPUT_LENGTH];
 	struct command_line *curr_command = (struct command_line *) calloc(1, sizeof(struct command_line));
 
