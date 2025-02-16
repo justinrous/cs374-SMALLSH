@@ -54,7 +54,12 @@ int main()
 	while(true)
 	{
 		curr_command = parse_input();
-
+		int count = 0;
+		do {
+			char* curr_input = curr_command->argv[count];
+			printf("Curr input: %s\n", curr_input);
+			count++;
+		} while(count < 3);		
 	}
 	return EXIT_SUCCESS;
 }
