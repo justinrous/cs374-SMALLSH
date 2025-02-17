@@ -33,18 +33,19 @@ struct command_line *parse_input()
 	fflush(stdout);
 	fgets(input, INPUT_LENGTH, stdin);
 
-	if (input == NULL) {
+	// Tokenize the input
+	char *token = strtok(input, " \n");
+
+	if (input[0] == '\n') {
 		curr_command->is_empty = true;
 		return curr_command;
 	}
-
-	// Tokenize the input
-	char *token = strtok(input, " \n");
 
 	if (!strcmp(token, comment)) {
 		curr_command->is_empty = true;
 		return curr_command;
 	}
+	
 	else {
 		curr_command->is_empty=false;
 	}
@@ -71,6 +72,7 @@ int main()
 	{
 		curr_command = parse_input();
 		if (curr_command->is_empty) {
+			free(curr_command);
 			continue;
 		}
 		else {
