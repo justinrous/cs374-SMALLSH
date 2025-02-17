@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Define Constants
 #define INPUT_LENGTH 2048
 #define MAX_ARGS 512
+const char* comment = "#";
 
 struct command_line
 {
@@ -13,6 +15,7 @@ struct command_line
 	char *input_file;
 	char *output_file;
 	bool is_bg;
+	bool is_empty;
 };
 
 struct command_line *parse_input()
@@ -30,8 +33,21 @@ struct command_line *parse_input()
 	fflush(stdout);
 	fgets(input, INPUT_LENGTH, stdin);
 
+	if (input == NULL) {
+		curr_command->is_empty = true;
+		return curr_command;
+	}
+
 	// Tokenize the input
 	char *token = strtok(input, " \n");
+
+	if (!strcmp(token, comment)) {
+		curr_command->is_empty = true;
+		return curr_command;
+	}
+	else {
+		curr_command->is_empty=false;
+	}
 	while(token){
 		if(!strcmp(token,"<")){
 			curr_command->input_file = strdup(strtok(NULL," \n"));
@@ -54,12 +70,18 @@ int main()
 	while(true)
 	{
 		curr_command = parse_input();
-		int count = 0;
-		do {
+		if (curr_command->is_empty) {
+			continue;
+		}
+		else {
+			int count = 0;
 			char* curr_input = curr_command->argv[count];
-			printf("Curr input: %s\n", curr_input);
-			count++;
-		} while(count < 3);		
+			while(curr_input != NULL)  {
+				printf("Curr input: %s\n", curr_input);
+				count++;
+				curr_input = curr_command->argv[count];
+			}	
+		}
 	}
 	return EXIT_SUCCESS;
 }
