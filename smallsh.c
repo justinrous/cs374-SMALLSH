@@ -44,6 +44,7 @@ void command(struct command_line* curr_command) {
 	}
 	
 	pid_t spawnpid = -5;
+	pid_t childpid;
 	spawnpid = fork();
 	int childStatus;
 	int execProgram;
@@ -67,9 +68,12 @@ void command(struct command_line* curr_command) {
 			// Parent process
 
 			// Wait for spawnid to terminate
-			spawnpid = waitpid(spawnpid, &childStatus, 0);
-			if (WIFEXITED(childStatus)) {
-				perror("Exec program failed.");
+			childpid = waitpid(spawnpid, &childStatus, 0);
+			if (childpid == -1) {
+				perror("waitpid() failed");
+			}
+			if (!WIFEXITED(childStatus)) {
+				perror("Exec program falied to exit normally.");
 				exit(EXIT_FAILURE);
 			}
 			break;
