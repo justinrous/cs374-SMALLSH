@@ -30,10 +30,24 @@ void command(struct command_line* curr_command) {
 	** Date: 02/16/2025
 	** URL: https://canvas.oregonstate.edu/courses/1987883/pages/exploration-process-api-creating-and-terminating-processes?module_item_id=24956218
 	*/
+
+	// Create argument array for exec process
+	char* commandArr[curr_command->argc + 1]; 
+	int count = curr_command->argc;
+	for (int i = 0; i <= count; i++) {
+		if (count == i) {
+			commandArr[i] = NULL;
+		}
+		else {
+			commandArr[i] = curr_command->argv[i];
+		}
+	}
+	
 	pid_t spawnpid = -5;
 	spawnpid = fork();
 	int childStatus;
 	int execProgram;
+
 
 	switch(spawnpid) {
 		case -1:
@@ -43,7 +57,7 @@ void command(struct command_line* curr_command) {
 			break;
 		case 0:
 			// Child process
-			execProgram = execvp(curr_command->argv[0], curr_command->argv);
+			execProgram = execvp(commandArr[0], commandArr);
 			if (execProgram == -1) {
 				perror("Exec program failed.");
 				exit(EXIT_FAILURE);
@@ -54,13 +68,15 @@ void command(struct command_line* curr_command) {
 
 			// Wait for spawnid to terminate
 			spawnpid = waitpid(spawnpid, &childStatus, 0);
-			if (spawnpid == -1) {
+			if (WIFEXITED(childStatus)) {
 				perror("Exec program failed.");
 				exit(EXIT_FAILURE);
 			}
 			break;
 	}
+}
 
+void cd(struct command_line* curr_command) {
 
 }
 
@@ -107,8 +123,8 @@ struct command_line *parse_input()
 		}
 		token=strtok(NULL," \n");
 	}
+	curr_command->argv[curr_command->argc] = NULL;
 	
-
 	// Check for Shell Built-in Commands
 	if (!strcmp(curr_command->argv[0], "exit")) {
 		curr_command->exit = true;
@@ -116,6 +132,7 @@ struct command_line *parse_input()
 	}
 	else if (!strcmp(curr_command->argv[0], "cd")) {
 		// Implement cd func
+		cd(curr_command);
 	}
 
 	else if (!strcmp(curr_command->argv[0], "status")) {
@@ -126,7 +143,6 @@ struct command_line *parse_input()
 		command(curr_command);
 
 	}
-
 	return curr_command;
 }
 
