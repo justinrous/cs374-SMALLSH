@@ -4,41 +4,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 // Define Constants
 #define INPUT_LENGTH 2048
 #define MAX_ARGS 512
 const char* comment = "#";
-
-void command(void) {
-	/*
-	** Runs a command from the shell
-	**
-	** Code adapted from Canvas Exploration: Process API - Creating and Terminating Processes
-	** Date: 02/16/2025
-	** URL: https://canvas.oregonstate.edu/courses/1987883/pages/exploration-process-api-creating-and-terminating-processes?module_item_id=24956218
-	*/
-	pid_t spawnpid = -5;
-	spawnpid = fork();
-
-	switch(spawnpid) {
-		case -1:
-			// Error 
-			perror("fork() failed");
-			exit(EXIT_FAILURE);
-			break;
-		case 0:
-			// Child process
-			break;
-		default:
-			// Parent process
-
-			// Wait for spawnid to terminate
-			break;
-	}
-
-
-}
 
 struct command_line
 {
@@ -50,6 +21,48 @@ struct command_line
 	bool is_empty;
 	bool exit;
 };
+
+void command(struct command_line* curr_command) {
+	/*
+	** Runs a command from the shell
+	**
+	** Code adapted from Canvas Exploration: Process API - Creating and Terminating Processes
+	** Date: 02/16/2025
+	** URL: https://canvas.oregonstate.edu/courses/1987883/pages/exploration-process-api-creating-and-terminating-processes?module_item_id=24956218
+	*/
+	pid_t spawnpid = -5;
+	spawnpid = fork();
+	int childStatus;
+	int execProgram;
+
+	switch(spawnpid) {
+		case -1:
+			// Error 
+			perror("fork() failed");
+			exit(EXIT_FAILURE);
+			break;
+		case 0:
+			// Child process
+			execProgram = execvp(curr_command->argv[0], curr_command->argv);
+			if (execProgram == -1) {
+				perror("Exec program failed.");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		default:
+			// Parent process
+
+			// Wait for spawnid to terminate
+			spawnpid = waitpid(spawnpid, &childStatus, 0);
+			if (spawnpid == -1) {
+				perror("Exec program failed.");
+				exit(EXIT_FAILURE);
+			}
+			break;
+	}
+
+
+}
 
 struct command_line *parse_input()
 {
@@ -101,16 +114,16 @@ struct command_line *parse_input()
 		curr_command->exit = true;
 		// Kill all processes/jobs that have been created by the shell
 	}
-	else if (!strcmp(curr_command->argv[0], "cd") {
+	else if (!strcmp(curr_command->argv[0], "cd")) {
 		// Implement cd func
 	}
 
-	else if (!strcmp(curr_command->argv[0], "status") {
+	else if (!strcmp(curr_command->argv[0], "status")) {
 		// Implement status func
 	}
 	else {
 		// Run built in command 
-		command();
+		command(curr_command);
 
 	}
 
@@ -132,7 +145,8 @@ int main()
 			return EXIT_SUCCESS;
 		}
 		else {
-			printf("Finsihed");
+			free(curr_command);
+			continue;
 		}
 	}
 	return EXIT_SUCCESS;
