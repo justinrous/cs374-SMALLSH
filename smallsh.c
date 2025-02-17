@@ -31,17 +31,6 @@ void command(struct command_line* curr_command) {
 	** URL: https://canvas.oregonstate.edu/courses/1987883/pages/exploration-process-api-creating-and-terminating-processes?module_item_id=24956218
 	*/
 
-	// Create argument array for exec process
-	char* commandArr[curr_command->argc + 1]; 
-	int count = curr_command->argc;
-	for (int i = 0; i <= count; i++) {
-		if (count == i) {
-			commandArr[i] = NULL;
-		}
-		else {
-			commandArr[i] = curr_command->argv[i];
-		}
-	}
 	
 	pid_t spawnpid = -5;
 	pid_t childpid;
@@ -58,12 +47,10 @@ void command(struct command_line* curr_command) {
 			break;
 		case 0:
 			// Child process
-			execProgram = execvp(commandArr[0], commandArr);
-			if (execProgram == -1) {
-				perror("Exec program failed.");
-				exit(EXIT_FAILURE);
-			}
-			break;
+			execvp(curr_command->argv[0], curr_command->argv);
+			printf("%s: no such file or directory\n", curr_command->argv[0]);
+			exit(EXIT_FAILURE);
+
 		default:
 			// Parent process
 
@@ -71,10 +58,6 @@ void command(struct command_line* curr_command) {
 			childpid = waitpid(spawnpid, &childStatus, 0);
 			if (childpid == -1) {
 				perror("waitpid() failed");
-			}
-			if (!WIFEXITED(childStatus)) {
-				perror("Exec program falied to exit normally.");
-				exit(EXIT_FAILURE);
 			}
 			break;
 	}
@@ -91,7 +74,7 @@ struct command_line *parse_input()
 	** Date:
 	** URL: 
 	*/
-	char input[INPUT_LENGTH];
+	char input[INPUT_LENGTH] = {0};
 	struct command_line *curr_command = (struct command_line *) calloc(1, sizeof(struct command_line));
 
 	// Get input
