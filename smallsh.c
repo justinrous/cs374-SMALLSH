@@ -64,7 +64,34 @@ void command(struct command_line* curr_command) {
 }
 
 void cd(struct command_line* curr_command) {
+	/*
+	** Changes working directory of smallsh
+	** 
+	*/
+	int chdirResult; // Stores result of directory change 
 
+	// No arguments, change directory to directory specified in HOME environment variable
+	if (curr_command->argv[1] == NULL) {
+		// Get home environment variable 
+		char* home;
+		home = getenv("HOME");
+		if (home == NULL) {
+			printf("HOME env variable not found");
+		}
+		else {
+			chdirResult = chdir(home);
+			if (chdirResult != 0) {
+				printf("Error changing directory");
+			}
+		}
+	}
+	// One argument - Path of directory to change to, either relative or absolute
+	else {
+		chdirResult = chdir(curr_command->argv[1]);
+		if (chdirResult != 0) {
+			printf("Error changing directory");
+		}
+	}
 }
 
 struct command_line *parse_input()
