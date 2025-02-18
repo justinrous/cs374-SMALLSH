@@ -183,7 +183,7 @@ int main()
 			continue;
 		}
 		else if (curr_command->exit) {
-			return EXIT_SUCCESS;
+			exit(EXIT_SUCCESS);
 		}
 		else {
 			free(curr_command);
