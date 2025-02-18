@@ -49,7 +49,7 @@ int command(struct command_line* curr_command) {
 		case 0:
 			// Child process
 			execvp(curr_command->argv[0], curr_command->argv);
-			printf("%s: no such file or directory\n", curr_command->argv[0]);
+			// printf("%s: no such file or directory\n", curr_command->argv[0]);
 			exit(EXIT_FAILURE);
 
 		default:
@@ -83,12 +83,12 @@ void cd(struct command_line* curr_command) {
 		char* home;
 		home = getenv("HOME");
 		if (home == NULL) {
-			printf("HOME env variable not found");
+			printf("HOME env variable not found\n");
 		}
 		else {
 			chdirResult = chdir(home);
 			if (chdirResult != 0) {
-				printf("Error changing directory");
+				printf("no such file or directory\n");
 			}
 		}
 	}
@@ -96,7 +96,7 @@ void cd(struct command_line* curr_command) {
 	else {
 		chdirResult = chdir(curr_command->argv[1]);
 		if (chdirResult != 0) {
-			printf("Error changing directory");
+			printf("Error changing directory\n");
 		}
 	}
 }
