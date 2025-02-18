@@ -11,6 +11,8 @@
 #define MAX_ARGS 512
 const char* comment = "#";
 
+int exitStatus = 0;
+
 struct command_line
 {
 	char *argv[MAX_ARGS + 1];
@@ -22,7 +24,7 @@ struct command_line
 	bool exit;
 };
 
-void command(struct command_line* curr_command) {
+int command(struct command_line* curr_command) {
 	/*
 	** Runs a command from the shell
 	**
@@ -31,7 +33,6 @@ void command(struct command_line* curr_command) {
 	** URL: https://canvas.oregonstate.edu/courses/1987883/pages/exploration-process-api-creating-and-terminating-processes?module_item_id=24956218
 	*/
 
-	
 	pid_t spawnpid = -5;
 	pid_t childpid;
 	spawnpid = fork();
@@ -55,9 +56,15 @@ void command(struct command_line* curr_command) {
 			// Parent process
 
 			// Wait for spawnid to terminate
-			childpid = waitpid(spawnpid, &childStatus, 0);
-			if (childpid == -1) {
-				perror("waitpid() failed");
+			waitpid(spawnpid, &childStatus, 0);
+			if (WIFEXITED(childStatus)) {
+				int exitCode = WEXITSTATUS(childStatus);
+				if (exitCode == 1) {
+					exitStatus = -1;
+				}
+				else {
+					exitStatus = 1;
+				}
 			}
 			break;
 	}
@@ -92,6 +99,10 @@ void cd(struct command_line* curr_command) {
 			printf("Error changing directory");
 		}
 	}
+}
+
+void status(void) {
+	printf("exit value %d\n", exitStatus);
 }
 
 struct command_line *parse_input()
@@ -137,7 +148,6 @@ struct command_line *parse_input()
 		}
 		token=strtok(NULL," \n");
 	}
-	curr_command->argv[curr_command->argc] = NULL;
 	
 	// Check for Shell Built-in Commands
 	if (!strcmp(curr_command->argv[0], "exit")) {
@@ -151,6 +161,7 @@ struct command_line *parse_input()
 
 	else if (!strcmp(curr_command->argv[0], "status")) {
 		// Implement status func
+		status();
 	}
 	else {
 		// Run built in command 
