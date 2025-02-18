@@ -117,7 +117,7 @@ struct command_line *parse_input()
 		curr_command->is_empty = true;
 		return curr_command;
 	}
-	else if (!strcmp(token, comment)) {
+	else if (!strcmp(token, comment) || token[0] == '#') {
 		curr_command->is_empty = true;
 		return curr_command;
 	}
