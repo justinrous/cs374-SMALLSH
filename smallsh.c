@@ -5,6 +5,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 // Define Constants
 #define INPUT_LENGTH 2048
@@ -33,11 +36,13 @@ int command(struct command_line* curr_command) {
 	** URL: https://canvas.oregonstate.edu/courses/1987883/pages/exploration-process-api-creating-and-terminating-processes?module_item_id=24956218
 	*/
 
-	pid_t spawnpid = -5;
+	pid_t spawnpid;
 	pid_t childpid;
 	spawnpid = fork();
 	int childStatus;
 	int execProgram;
+
+	// If input File, get data from input file 
 
 
 	switch(spawnpid) {
@@ -48,8 +53,42 @@ int command(struct command_line* curr_command) {
 			break;
 		case 0:
 			// Child process
+
+			// If input_file, redirect standard input 
+			if (curr_command->input_file) {
+				int inputFD = open(curr_command->input_file, O_RDONLY, 0644);
+
+				// if can't open file, set exit status to 1
+				if (inputFD == -1) {
+					exit(EXIT_FAILURE);
+				}
+				else {
+					int inputRedirect = dup2(inputFD, STDIN_FILENO);
+					if (inputRedirect == -1) {
+						printf("Error setting standard input");
+						exit(EXIT_FAILURE);
+					}
+				}
+			}
+
+			// If output_file, redirect standard output 
+			if (curr_command->output_file) {
+				int outputFD = open(curr_command->output_file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+
+				//
+				if (outputFD == -1) {
+					exit(EXIT_FAILURE);
+				}
+				else {
+					int outputRedirect = dup2(outputFD, STDOUT_FILENO);
+					if (outputRedirect == -1) {
+						printf("Error setting stdout");
+						exit(EXIT_FAILURE);
+					}
+				}
+			}
+
 			execvp(curr_command->argv[0], curr_command->argv);
-			// printf("%s: no such file or directory\n", curr_command->argv[0]);
 			exit(EXIT_FAILURE);
 
 		default:
@@ -60,10 +99,10 @@ int command(struct command_line* curr_command) {
 			if (WIFEXITED(childStatus)) {
 				int exitCode = WEXITSTATUS(childStatus);
 				if (exitCode == 1) {
-					exitStatus = -1;
+					exitStatus = 1;
 				}
 				else {
-					exitStatus = 1;
+					exitStatus = 0;
 				}
 			}
 			break;
@@ -120,21 +159,17 @@ struct command_line *parse_input()
 	fflush(stdout);
 	fgets(input, INPUT_LENGTH, stdin);
 
-	// Tokenize the input
-	char *token = strtok(input, " \n");
-
 	// Check input for comment or blank line
-	if (input[0] == '\n') {
-		curr_command->is_empty = true;
-		return curr_command;
-	}
-	else if (!strcmp(token, comment) || token[0] == '#') {
+	if (input[0] == '\n' || input[0] == '#') {
 		curr_command->is_empty = true;
 		return curr_command;
 	}
 	else {
 		curr_command->is_empty=false;
 	}
+
+	// Tokenize the input
+	char *token = strtok(input, " \n");
 
 	while(token){
 		if(!strcmp(token,"<")){
@@ -143,22 +178,26 @@ struct command_line *parse_input()
 			curr_command->output_file = strdup(strtok(NULL," \n"));
 		} else if(!strcmp(token,"&")){
 			curr_command->is_bg = true;
-		} else{
+		} 
+		else{
 			curr_command->argv[curr_command->argc++] = strdup(token);
 		}
 		token=strtok(NULL," \n");
 	}
-	
+	return curr_command;
+}
+
+void processCommands(struct command_line* curr_command) {
 	// Check for Shell Built-in Commands
 	if (!strcmp(curr_command->argv[0], "exit")) {
 		curr_command->exit = true;
+		return;
 		// Kill all processes/jobs that have been created by the shell
 	}
 	else if (!strcmp(curr_command->argv[0], "cd")) {
 		// Implement cd func
 		cd(curr_command);
 	}
-
 	else if (!strcmp(curr_command->argv[0], "status")) {
 		// Implement status func
 		status();
@@ -166,9 +205,7 @@ struct command_line *parse_input()
 	else {
 		// Run built in command 
 		command(curr_command);
-
 	}
-	return curr_command;
 }
 
 int main()
@@ -182,7 +219,11 @@ int main()
 			free(curr_command);
 			continue;
 		}
-		else if (curr_command->exit) {
+
+		processCommands(curr_command);
+
+		if (curr_command->exit) {
+			// Kill all processes/jobs that have been created by the shell
 			exit(EXIT_SUCCESS);
 		}
 		else {

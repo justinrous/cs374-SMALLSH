@@ -1,1 +1,5 @@
-smallsh
+# Ignore everything
+*
+
+# Except smallsh.c
+!smallsh.c
