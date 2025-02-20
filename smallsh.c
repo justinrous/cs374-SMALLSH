@@ -15,6 +15,7 @@
 const char* comment = "#";
 
 int exitStatus = 0;
+int badInputFile = 0; // Stores 1 if invalid command is entered - 0 if valid
 
 struct command_line
 {
@@ -42,8 +43,6 @@ int command(struct command_line* curr_command) {
 	int childStatus;
 	int execProgram;
 
-	// If input File, get data from input file 
-
 
 	switch(spawnpid) {
 		case -1:
@@ -66,7 +65,7 @@ int command(struct command_line* curr_command) {
 				else {
 					int inputRedirect = dup2(inputFD, STDIN_FILENO);
 					if (inputRedirect == -1) {
-						printf("Error setting standard input");
+						printf("Error setting standard input\n");
 						exit(EXIT_FAILURE);
 					}
 				}
@@ -90,6 +89,8 @@ int command(struct command_line* curr_command) {
 			}
 
 			execvp(curr_command->argv[0], curr_command->argv);
+			printf("%s: no such file or directory\n", curr_command->argv[0]);
+
 			exit(EXIT_FAILURE);
 
 		default:
