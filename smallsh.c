@@ -60,6 +60,7 @@ int command(struct command_line* curr_command) {
 
 				// if can't open file, set exit status to 1
 				if (inputFD == -1) {
+					printf("cannot open %s for input\n", curr_command->input_file);
 					exit(EXIT_FAILURE);
 				}
 				else {
