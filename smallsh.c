@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 
 
 // Define Constants
@@ -30,35 +31,9 @@ struct command_line
 	bool exit;
 };
 
+
 void check_bg_processes(void) {
 
-	/*
-	int childStatus;
-	pid_t childRes;
-	// Check for background processes that have finished
-	for (int i = 0; i < 1000; i++) {
-		if (bg_processes[i]) {
-			pid_t pid_of_child = (pid_t) *bg_processes[i];
-			childRes = waitpid(pid_of_child, &childStatus, WNOHANG);
-			if (childRes > 0) {
-				if (WIFEXITED(childStatus)) {
-					int exitCode = WEXITSTATUS(childStatus);
-					if (exitCode == 1) {
-						exitStatus = 1;
-					}
-					else {
-						exitStatus = 0;
-					}
-				}
-				printf("background pid %d is done; exit value %d\n", *bg_processes[i], exitStatus);
-				// Free memory allocation 
-				free(bg_processes[i]);
-				// Reset array index back to null
-				bg_processes[i] = NULL;
-			}
-		}
-	}
-	*/
 	int childStatus;
 	pid_t childRes;
 
@@ -113,6 +88,13 @@ int command(struct command_line* curr_command) {
 			if (curr_command->is_bg) {
 				int bg_pid = (int) getpid();
 				printf("background pid is %d\n", bg_pid);
+			}
+			else {
+				// Restore default SIGINT action
+				struct sigaction fg_sigINT_action;
+				fg_sigINT_action.sa_handler = SIG_DFL;
+				sigaction(SIGINT, &fg_sigINT_action, NULL);
+
 			}
 
 			// If input_file, redirect standard input 
@@ -200,33 +182,13 @@ int command(struct command_line* curr_command) {
 						exitStatus = 0;
 					}
 				}
+				else if (WIFSIGNALED(childStatus)) {
+					int signo = WTERMSIG(childStatus);
+					printf("terminated by signal %d\n", signo);
+				}
 			}
 			else {
 				// Do not wait for child to terminate
-
-				/*
-				struct sigaction SIGCHLD_action;
-				SIGCHLD_action.sa_handler = handle_SIGCHLD;
-				sigfillset(&SIGCHLD_action.sa_mask);
-				SIGCHLD_action.sa_flags = 0;
-				*/
-
-				/*
-				// Add to list of background process IDs 
-				int* bg_pid_pointer = NULL;
-				for (int i = 0; i < 1000; i++) {
-					// If null
-					if (!bg_processes[i]) {
-						// Create new int value in heap 
-						bg_pid_pointer = calloc(1, sizeof(int)); 
-						*bg_pid_pointer = spawnpid;
-
-						// Add pointer to array 
-						bg_processes[i] = bg_pid_pointer;
-						break;
-					}
-				}
-				*/
 				for (int i = 0; i < 1000; i++) {
 					// If null
 					if (!bg_processes[i] > 0) {
@@ -344,22 +306,36 @@ int main()
 
 	while(true)
 	{
+		// Register Signal Handler for Sigint
+		/* Code adapted from Canvas Module
+		** URL: https://canvas.oregonstate.edu/courses/1987883/pages/exploration-signal-handling-api?module_item_id=24956227
+		** Date: 
+		*/
+
+		struct sigaction SIGINT_action = {0};
+		SIGINT_action.sa_handler = SIG_IGN;
+		sigaction(SIGINT, &SIGINT_action, NULL);
+
 		check_bg_processes();
 		curr_command = parse_input();
 		if (curr_command->is_empty) {
-			free(curr_command);
+			curr_command = NULL;
 		}
-
-		else if (curr_command->exit) {
-			// Kill all processes/jobs that have been created by the shell
-			exit(EXIT_SUCCESS);
-		}
-
 		else {
 			processCommands(curr_command);
 		}
-		
-		// Step through all 
+
+		if (curr_command->exit) {
+			// Kill all processes/jobs that have been created by the shell
+			for (int i = 0; i < 1000; i++) {
+				if (bg_processes[i] > 0) {
+					kill(bg_processes[i], SIGTERM);
+				}
+			}
+			free(curr_command);
+			exit(EXIT_SUCCESS);
+		}
+		curr_command = NULL;
 	}
 	free(curr_command);
 	return EXIT_SUCCESS;
