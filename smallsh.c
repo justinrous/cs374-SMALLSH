@@ -17,6 +17,8 @@ const char* comment = "#";
 int exitStatus = 0;
 int badInputFile = 0; // Stores 1 if invalid command is entered - 0 if valid
 
+pid_t bg_processes[1000] ={-1}; // Stores pointers for background process ids
+
 struct command_line
 {
 	char *argv[MAX_ARGS + 1];
@@ -27,6 +29,61 @@ struct command_line
 	bool is_empty;
 	bool exit;
 };
+
+void check_bg_processes(void) {
+
+	/*
+	int childStatus;
+	pid_t childRes;
+	// Check for background processes that have finished
+	for (int i = 0; i < 1000; i++) {
+		if (bg_processes[i]) {
+			pid_t pid_of_child = (pid_t) *bg_processes[i];
+			childRes = waitpid(pid_of_child, &childStatus, WNOHANG);
+			if (childRes > 0) {
+				if (WIFEXITED(childStatus)) {
+					int exitCode = WEXITSTATUS(childStatus);
+					if (exitCode == 1) {
+						exitStatus = 1;
+					}
+					else {
+						exitStatus = 0;
+					}
+				}
+				printf("background pid %d is done; exit value %d\n", *bg_processes[i], exitStatus);
+				// Free memory allocation 
+				free(bg_processes[i]);
+				// Reset array index back to null
+				bg_processes[i] = NULL;
+			}
+		}
+	}
+	*/
+	int childStatus;
+	pid_t childRes;
+
+	pid_t childPid;
+	for (int i = 0; i < 1000; i++) {
+		if (bg_processes[i] > -1) {
+			childPid = bg_processes[i];
+			childRes = waitpid(childPid, &childStatus, WNOHANG);
+			if (childRes > 0) {
+				if (WIFEXITED(childStatus)) {
+					int exitCode = WEXITSTATUS(childStatus);
+					if (exitCode == 1) {
+						exitStatus = 1;
+					}
+					else {
+						exitStatus = 0;
+					}
+				}
+				printf("background pid %d is done; exit value %d\n", bg_processes[i], exitStatus);
+				// Reset array index back to null
+				bg_processes[i] = -1;
+			}
+		}
+	}
+}
 
 int command(struct command_line* curr_command) {
 	/*
@@ -53,9 +110,31 @@ int command(struct command_line* curr_command) {
 		case 0:
 			// Child process
 
+			if (curr_command->is_bg) {
+				int bg_pid = (int) getpid();
+				printf("background pid is %d\n", bg_pid);
+			}
+
 			// If input_file, redirect standard input 
 			if (curr_command->input_file) {
 				int inputFD = open(curr_command->input_file, O_RDONLY, 0644);
+
+				// if can't open file, set exit status to 1
+				if (inputFD == -1) {
+					printf("cannot open %s for input\n", curr_command->input_file);
+					exit(EXIT_FAILURE);
+				}
+				else {
+					int inputRedirect = dup2(inputFD, STDIN_FILENO);
+					if (inputRedirect == -1) {
+						printf("Error setting standard input\n");
+						exit(EXIT_FAILURE);
+					}
+				}
+			}
+
+			else if (curr_command->is_bg) {
+				int inputFD = open("/dev/null", O_RDONLY, 0644);
 
 				// if can't open file, set exit status to 1
 				if (inputFD == -1) {
@@ -87,7 +166,21 @@ int command(struct command_line* curr_command) {
 					}
 				}
 			}
+			else if (curr_command->is_bg) {
+				int outputFD = open("/dev/null", O_WRONLY | O_TRUNC | O_CREAT, 0644);
 
+				//
+				if (outputFD == -1) {
+					exit(EXIT_FAILURE);
+				}
+				else {
+					int outputRedirect = dup2(outputFD, STDOUT_FILENO);
+					if (outputRedirect == -1) {
+						printf("Error setting stdout");
+						exit(EXIT_FAILURE);
+					}
+				}
+			}
 			execvp(curr_command->argv[0], curr_command->argv);
 			printf("%s: no such file or directory\n", curr_command->argv[0]);
 
@@ -95,16 +188,51 @@ int command(struct command_line* curr_command) {
 
 		default:
 			// Parent process
-
-			// Wait for spawnid to terminate
-			waitpid(spawnpid, &childStatus, 0);
-			if (WIFEXITED(childStatus)) {
-				int exitCode = WEXITSTATUS(childStatus);
-				if (exitCode == 1) {
-					exitStatus = 1;
+			if (!curr_command->is_bg) {
+				// Wait for spawnid to terminate
+				waitpid(spawnpid, &childStatus, 0);
+				if (WIFEXITED(childStatus)) {
+					int exitCode = WEXITSTATUS(childStatus);
+					if (exitCode == 1) {
+						exitStatus = 1;
+					}
+					else {
+						exitStatus = 0;
+					}
 				}
-				else {
-					exitStatus = 0;
+			}
+			else {
+				// Do not wait for child to terminate
+
+				/*
+				struct sigaction SIGCHLD_action;
+				SIGCHLD_action.sa_handler = handle_SIGCHLD;
+				sigfillset(&SIGCHLD_action.sa_mask);
+				SIGCHLD_action.sa_flags = 0;
+				*/
+
+				/*
+				// Add to list of background process IDs 
+				int* bg_pid_pointer = NULL;
+				for (int i = 0; i < 1000; i++) {
+					// If null
+					if (!bg_processes[i]) {
+						// Create new int value in heap 
+						bg_pid_pointer = calloc(1, sizeof(int)); 
+						*bg_pid_pointer = spawnpid;
+
+						// Add pointer to array 
+						bg_processes[i] = bg_pid_pointer;
+						break;
+					}
+				}
+				*/
+				for (int i = 0; i < 1000; i++) {
+					// If null
+					if (!bg_processes[i] > 0) {
+						bg_processes[i] = spawnpid;
+						break;
+					}
 				}
 			}
 			break;
@@ -216,22 +344,23 @@ int main()
 
 	while(true)
 	{
+		check_bg_processes();
 		curr_command = parse_input();
 		if (curr_command->is_empty) {
 			free(curr_command);
-			continue;
 		}
 
-		processCommands(curr_command);
-
-		if (curr_command->exit) {
+		else if (curr_command->exit) {
 			// Kill all processes/jobs that have been created by the shell
 			exit(EXIT_SUCCESS);
 		}
+
 		else {
-			free(curr_command);
-			continue;
+			processCommands(curr_command);
 		}
+		
+		// Step through all 
 	}
+	free(curr_command);
 	return EXIT_SUCCESS;
 }
