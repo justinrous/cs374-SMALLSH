@@ -263,6 +263,11 @@ struct command_line *parse_input()
 	// Tokenize the input
 	char *token = strtok(input, " \n");
 
+	if (!strcmp(token, "exit")) {
+		curr_command->exit = true;
+		return curr_command;
+	}
+
 	while(token){
 		if(!strcmp(token,"<")){
 			curr_command->input_file = strdup(strtok(NULL," \n"));
@@ -321,11 +326,7 @@ int main()
 		if (curr_command->is_empty) {
 			curr_command = NULL;
 		}
-		else {
-			processCommands(curr_command);
-		}
-
-		if (curr_command->exit) {
+		else if (curr_command->exit) {
 			// Kill all processes/jobs that have been created by the shell
 			for (int i = 0; i < 1000; i++) {
 				if (bg_processes[i] > 0) {
@@ -334,6 +335,9 @@ int main()
 			}
 			free(curr_command);
 			exit(EXIT_SUCCESS);
+		}
+		else {
+			processCommands(curr_command);
 		}
 		curr_command = NULL;
 	}
