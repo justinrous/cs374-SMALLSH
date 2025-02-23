@@ -36,8 +36,8 @@ void check_bg_processes(void) {
 
 	int childStatus;
 	pid_t childRes;
-
 	pid_t childPid;
+
 	for (int i = 0; i < 1000; i++) {
 		if (bg_processes[i] > -1) {
 			childPid = bg_processes[i];
@@ -51,8 +51,12 @@ void check_bg_processes(void) {
 					else {
 						exitStatus = 0;
 					}
+					printf("background pid %d is done; exit value %d\n", bg_processes[i], exitStatus);
 				}
-				printf("background pid %d is done; exit value %d\n", bg_processes[i], exitStatus);
+				else if (WIFSIGNALED(childStatus)) {
+					int signo = WTERMSIG(childStatus);
+					printf("background pid %d is done; terminated by signal %d\n", bg_processes[i], signo);
+				}
 				// Reset array index back to null
 				bg_processes[i] = -1;
 			}
@@ -191,7 +195,7 @@ int command(struct command_line* curr_command) {
 				// Do not wait for child to terminate
 				for (int i = 0; i < 1000; i++) {
 					// If null
-					if (!bg_processes[i] > 0) {
+					if (bg_processes[i] <= 0) {
 						bg_processes[i] = spawnpid;
 						break;
 					}
