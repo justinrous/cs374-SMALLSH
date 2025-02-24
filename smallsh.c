@@ -17,6 +17,7 @@ const char* comment = "#";
 
 int exitStatus = 0;
 int badInputFile = 0; // Stores 1 if invalid command is entered - 0 if valid
+bool sig_stp = false; // Stores true if SIGSTP signal is sent. False if background commands are allowed. 
 
 pid_t bg_processes[1000] ={-1}; // Stores pointers for background process ids
 
@@ -88,6 +89,12 @@ int command(struct command_line* curr_command) {
 			break;
 		case 0:
 			// Child process
+
+			// Register SIGSTP handler for child
+			struct sigaction SIGSTP_action = {0};
+			SIGSTP_action.sa_handler = SIG_IGN;
+			SIGSTP_action.sa_flags = SA_RESTART;
+			sigaction(SIGSTP, &SIGINT_action, NULL);
 
 			if (curr_command->is_bg) {
 				int bg_pid = (int) getpid();
@@ -323,6 +330,7 @@ int main()
 
 		struct sigaction SIGINT_action = {0};
 		SIGINT_action.sa_handler = SIG_IGN;
+		SIGINT_action.sa_flags = SA_RESTART;
 		sigaction(SIGINT, &SIGINT_action, NULL);
 
 		check_bg_processes();
