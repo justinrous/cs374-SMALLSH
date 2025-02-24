@@ -38,6 +38,11 @@ void handle_SIGTSTP(int signo) {
 		write(STDOUT_FILENO, sigstp_message, 50);
 		sig_tstp = true;
 	}
+	else {
+		char* sigstp_message_1 = "\nExiting foreground-only mode\n";
+		write(STDOUT_FILENO, sigstp_message_1, 29);
+		sig_tstp = false;
+	}
 }
 
 
