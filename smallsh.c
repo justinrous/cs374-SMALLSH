@@ -17,7 +17,7 @@ const char* comment = "#";
 
 int exitStatus = 0;
 int badInputFile = 0; // Stores 1 if invalid command is entered - 0 if valid
-bool sig_stp = false; // Stores true if SIGSTP signal is sent. False if background commands are allowed. 
+bool sig_tstp = false; // Stores true if SIGSTP signal is sent. False if background commands are allowed. 
 
 pid_t bg_processes[1000] ={-1}; // Stores pointers for background process ids
 
@@ -31,6 +31,14 @@ struct command_line
 	bool is_empty;
 	bool exit;
 };
+
+void handle_SIGTSTP(int signo) {
+	if (!sig_tstp) {
+		char* sigstp_message = "\nEntering foreground-only mode (& is now ignored)\n";
+		write(STDOUT_FILENO, sigstp_message, 50);
+		sig_tstp = true;
+	}
+}
 
 
 void check_bg_processes(void) {
@@ -90,12 +98,6 @@ int command(struct command_line* curr_command) {
 		case 0:
 			// Child process
 
-			// Register SIGSTP handler for child
-			struct sigaction SIGSTP_action = {0};
-			SIGSTP_action.sa_handler = SIG_IGN;
-			SIGSTP_action.sa_flags = SA_RESTART;
-			sigaction(SIGSTP, &SIGINT_action, NULL);
-
 			if (curr_command->is_bg) {
 				int bg_pid = (int) getpid();
 				printf("background pid is %d\n", bg_pid);
@@ -105,8 +107,13 @@ int command(struct command_line* curr_command) {
 				struct sigaction fg_sigINT_action;
 				fg_sigINT_action.sa_handler = SIG_DFL;
 				sigaction(SIGINT, &fg_sigINT_action, NULL);
-
 			}
+
+			// Register SIGTSTP handler for child to ignore SIGTSTP
+			struct sigaction SIGTSTP_action = {0};
+			SIGTSTP_action.sa_handler = SIG_IGN;
+			// SIGTSTP_action.sa_flags = SA_RESTART;
+			sigaction(SIGTSTP, &SIGTSTP_action, NULL);
 
 			// If input_file, redirect standard input 
 			if (curr_command->input_file) {
@@ -284,9 +291,12 @@ struct command_line *parse_input()
 			curr_command->input_file = strdup(strtok(NULL," \n"));
 		} else if(!strcmp(token,">")){
 			curr_command->output_file = strdup(strtok(NULL," \n"));
-		} else if(!strcmp(token,"&")){
+		} else if(!strcmp(token,"&") && (!sig_tstp)){
 			curr_command->is_bg = true;
-		} 
+		} else if (!strcmp(token, "&") && sig_tstp) {
+			token = strtok(NULL, " \n");
+			continue;
+		}
 		else{
 			curr_command->argv[curr_command->argc++] = strdup(token);
 		}
@@ -328,10 +338,17 @@ int main()
 		** Date: 
 		*/
 
+		// Set paretn process to ignore SIGINT
 		struct sigaction SIGINT_action = {0};
 		SIGINT_action.sa_handler = SIG_IGN;
 		SIGINT_action.sa_flags = SA_RESTART;
 		sigaction(SIGINT, &SIGINT_action, NULL);
+
+		// Set sigaction for SIGTSTP in parent 
+		struct sigaction SIGTSTP_action = {0};
+		SIGTSTP_action.sa_handler = handle_SIGTSTP;
+		SIGTSTP_action.sa_flags = SA_RESTART;
+		sigaction(SIGTSTP, &SIGTSTP_action, NULL);
 
 		check_bg_processes();
 		curr_command = parse_input();
