@@ -33,6 +33,9 @@ struct command_line
 };
 
 void handle_SIGTSTP(int signo) {
+	/*
+	** Signal handler for parent process when SIGTSTP signal is sent 
+	*/
 	if (!sig_tstp) {
 		char* sigstp_message = "\nEntering foreground-only mode (& is now ignored)\n";
 		write(STDOUT_FILENO, sigstp_message, 50);
@@ -47,6 +50,11 @@ void handle_SIGTSTP(int signo) {
 
 
 void check_bg_processes(void) {
+	/*
+	** This function is called by the parent function to check for any background child  
+	** processes that have exited. Updates exitStatus for the background process 
+	** and checks if background process was terminated by a signal. 
+	*/
 
 	int childStatus;
 	pid_t childRes;
@@ -71,7 +79,7 @@ void check_bg_processes(void) {
 					int signo = WTERMSIG(childStatus);
 					printf("background pid %d is done; terminated by signal %d\n", bg_processes[i], signo);
 				}
-				// Reset array index back to null
+				// Reset index of array that stored exited background process
 				bg_processes[i] = -1;
 			}
 		}
@@ -80,7 +88,8 @@ void check_bg_processes(void) {
 
 int command(struct command_line* curr_command) {
 	/*
-	** Runs a command from the shell
+	** This function is used to run a non-bulit in command. The parent process forks off a child process and updates stdin/stdout
+	** for the child process. 
 	**
 	** Code adapted from Canvas Exploration: Process API - Creating and Terminating Processes
 	** Date: 02/16/2025
@@ -93,7 +102,6 @@ int command(struct command_line* curr_command) {
 	int childStatus;
 	int execProgram;
 
-
 	switch(spawnpid) {
 		case -1:
 			// Error 
@@ -102,13 +110,12 @@ int command(struct command_line* curr_command) {
 			break;
 		case 0:
 			// Child process
-
 			if (curr_command->is_bg) {
 				int bg_pid = (int) getpid();
 				printf("background pid is %d\n", bg_pid);
 			}
 			else {
-				// Restore default SIGINT action
+				// Restore default SIGINT action in child 
 				struct sigaction fg_sigINT_action;
 				fg_sigINT_action.sa_handler = SIG_DFL;
 				sigaction(SIGINT, &fg_sigINT_action, NULL);
@@ -137,7 +144,7 @@ int command(struct command_line* curr_command) {
 					}
 				}
 			}
-
+			// If background process with no input file, set standard input to "/dev/null"
 			else if (curr_command->is_bg) {
 				int inputFD = open("/dev/null", O_RDONLY, 0644);
 
@@ -171,6 +178,7 @@ int command(struct command_line* curr_command) {
 					}
 				}
 			}
+			// If background process with no provided output file, set standard output to "/dev/null"
 			else if (curr_command->is_bg) {
 				int outputFD = open("/dev/null", O_WRONLY | O_TRUNC | O_CREAT, 0644);
 
@@ -193,6 +201,8 @@ int command(struct command_line* curr_command) {
 
 		default:
 			// Parent process
+
+			// If not background process, wait for child to terminate and update exitStatus
 			if (!curr_command->is_bg) {
 				// Wait for spawnid to terminate
 				waitpid(spawnpid, &childStatus, 0);
@@ -211,7 +221,7 @@ int command(struct command_line* curr_command) {
 				}
 			}
 			else {
-				// Do not wait for child to terminate
+				// Store process id (spawnid) in next available index of bg_processes array 
 				for (int i = 0; i < 1000; i++) {
 					// If null
 					if (bg_processes[i] <= 0) {
@@ -262,9 +272,9 @@ void status(void) {
 struct command_line *parse_input()
 {
 	/*
-	** Code adapted from canvas
-	** Date:
-	** URL: 
+	** Code adapted from code provided for assignment
+	** Date: 02-23-25
+	** URL: https://canvas.oregonstate.edu/courses/1987883/assignments/9864854?module_item_id=25049863
 	*/
 	char input[INPUT_LENGTH] = {0};
 	struct command_line *curr_command = (struct command_line *) calloc(1, sizeof(struct command_line));
@@ -315,7 +325,6 @@ void processCommands(struct command_line* curr_command) {
 	if (!strcmp(curr_command->argv[0], "exit")) {
 		curr_command->exit = true;
 		return;
-		// Kill all processes/jobs that have been created by the shell
 	}
 	else if (!strcmp(curr_command->argv[0], "cd")) {
 		// Implement cd func
@@ -343,7 +352,7 @@ int main()
 		** Date: 
 		*/
 
-		// Set paretn process to ignore SIGINT
+		// Set parent process to ignore SIGINT
 		struct sigaction SIGINT_action = {0};
 		SIGINT_action.sa_handler = SIG_IGN;
 		SIGINT_action.sa_flags = SA_RESTART;
@@ -357,6 +366,7 @@ int main()
 
 		check_bg_processes();
 		curr_command = parse_input();
+
 		if (curr_command->is_empty) {
 			curr_command = NULL;
 		}
