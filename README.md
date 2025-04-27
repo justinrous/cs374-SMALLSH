@@ -3,10 +3,11 @@ Smallsh is a program written in C that implements a subset of features of well-k
 
 
 
-##Installation
+##Installation##
 - Clone the repository locally
 - Compile smallsh.c on a Linux system
 - Enter commands
+  
 ###Commands###
 - Exit: Exits the shell. Takes no arguments.
 - CD: Change directory.
